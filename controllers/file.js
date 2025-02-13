@@ -45,37 +45,31 @@ export const uploadFile = async (req, res, next) => {
       return res.status(401).json({ message: "Unauthorized: User not found" });
     }
 
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ message: "No file uploaded" });
-    }
+    const { fileUrl, fileType } = req.body; // File Picker sends URL & type
 
-    const file = req.files[0]; // Get first file
-
-    // Upload to S3
-    const uploadedFile = await uploadToS3(file);
-    if (!uploadedFile) {
-      return res.status(500).json({ message: "File upload failed" });
+    if (!fileUrl || !fileType) {
+      return res.status(400).json({ message: "File URL or type missing" });
     }
 
     let extractedText = null;
 
-    // Extract text only if the file is an image
-    if (file.mimetype.startsWith("image/")) {
+    // ✅ Extract text only if the file is an image
+    if (fileType.startsWith("image/")) {
       try {
-        extractedText = await extractTextFromImage(uploadedFile);
+        extractedText = await extractTextFromImage(fileUrl);
       } catch (err) {
         console.error("Error extracting text from image:", err);
       }
     }
 
-    // Save file in DB with name and email
+    // ✅ Save file details in DB
     const newFile = await FileModel.create({
       user: req.user._id,
-      name: req.user.name,    // ✅ Store name
-      email: req.user.email,  // ✅ Store email
-      fileUrl: uploadedFile,
-      fileType: file.mimetype,
-      extractedText: extractedText,
+      name: req.user.name,
+      email: req.user.email,
+      fileUrl, // File Picker URL
+      fileType,
+      extractedText,
       status: "Uploaded",
     });
 
@@ -84,7 +78,6 @@ export const uploadFile = async (req, res, next) => {
     next(error);
   }
 };
-
 export const getFiles = async (req, res, next) => {
   try {
     const files = await FileModel.find({ user: req.user._id });
