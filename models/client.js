@@ -8,7 +8,7 @@ const clientSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
-    unique: true, // Optional: Prevent duplicate emails
+    unique: true, 
   },
   password: {
     type: String,

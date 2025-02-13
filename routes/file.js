@@ -9,7 +9,7 @@ router.post("/kk", dummyForm);
 
 router.get("/", requireSignIn, getFiles);
 
-router.get("/:id/download", requireSignIn, downloadFile);
+router.get("/download/:id", requireSignIn, downloadFile);
 
 router.get("/admin/files", requireSignIn, isAdmin, getAllFiles);
 

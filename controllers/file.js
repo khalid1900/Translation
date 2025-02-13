@@ -7,9 +7,41 @@ import dummy from "../models/dummy.js";
 
 
 
+// export const uploadFile = async (req, res, next) => {
+//   try {
+//     if (!req.user) {
+//       return res.status(401).json({ message: "Unauthorized: User not found" });
+//     }
+
+//     if (!req.files || req.files.length === 0) {
+//       return res.status(400).json({ message: "No file uploaded" });
+//     }
+
+//     const file = req.files[0]; // Get first file
+//     const uploadedFile = await uploadToS3(file);
+
+//     let extractedText = null;
+//     if (file.mimetype.startsWith("image/")) { // ✅ Use file.mimetype instead of req.file.mimetype
+//       extractedText = await extractTextFromImage(uploadedFile);
+//     }
+
+//     const newFile = await FileModel.create({
+//       user: req.user._id,
+//       fileUrl: uploadedFile,
+//       fileType: file.mimetype, // ✅ Corrected `mimetype` reference
+//       extractedText: extractedText, // ✅ Now stores extracted text if available
+//       status: "Uploaded",
+//     });
+
+//     res.status(201).json({ message: "File uploaded successfully", data: newFile });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
 export const uploadFile = async (req, res, next) => {
   try {
-    if (!req.user) {
+    if (!req.user || !req.user._id) {
       return res.status(401).json({ message: "Unauthorized: User not found" });
     }
 
@@ -18,18 +50,32 @@ export const uploadFile = async (req, res, next) => {
     }
 
     const file = req.files[0]; // Get first file
-    const uploadedFile = await uploadToS3(file);
 
-    let extractedText = null;
-    if (file.mimetype.startsWith("image/")) { // ✅ Use file.mimetype instead of req.file.mimetype
-      extractedText = await extractTextFromImage(uploadedFile);
+    // Upload to S3
+    const uploadedFile = await uploadToS3(file);
+    if (!uploadedFile) {
+      return res.status(500).json({ message: "File upload failed" });
     }
 
+    let extractedText = null;
+
+    // Extract text only if the file is an image
+    if (file.mimetype.startsWith("image/")) {
+      try {
+        extractedText = await extractTextFromImage(uploadedFile);
+      } catch (err) {
+        console.error("Error extracting text from image:", err);
+      }
+    }
+
+    // Save file in DB with name and email
     const newFile = await FileModel.create({
       user: req.user._id,
+      name: req.user.name,    // ✅ Store name
+      email: req.user.email,  // ✅ Store email
       fileUrl: uploadedFile,
-      fileType: file.mimetype, // ✅ Corrected `mimetype` reference
-      extractedText: extractedText, // ✅ Now stores extracted text if available
+      fileType: file.mimetype,
+      extractedText: extractedText,
       status: "Uploaded",
     });
 
@@ -39,9 +85,6 @@ export const uploadFile = async (req, res, next) => {
   }
 };
 
-/**
- * Get all files for the authenticated user
- */
 export const getFiles = async (req, res, next) => {
   try {
     const files = await FileModel.find({ user: req.user._id });
@@ -56,7 +99,7 @@ export const getFiles = async (req, res, next) => {
  */
 export const downloadFile = async (req, res, next) => {
   try {
-    const file = await FileModel.findById(req.params.id);
+    const file = await FileModel.findOne({ user: req.params.id }); 
     if (!file) {
       return res.status(404).json({ message: "File not found" });
     }
@@ -67,40 +110,24 @@ export const downloadFile = async (req, res, next) => {
 };
 
 
+
 export const getAllFiles = async (req, res, next) => {
   try {
-    const files = await FileModel.find()
-      .populate("user", "name email language") 
-      .select("fileUrl fileType status user"); 
+    const files = await FileModel.find();
 
     if (!files.length) {
       return res.status(404).json({ message: "No files found" });
     }
 
-    // Format response data
-    const formattedFiles = files.map(file => ({
-      name: file.user ? file.user.name : "Unknown",  // ✅ Safe check
-      email: file.user ? file.user.email : "Unknown",
-      language: file.user ? file.user.language : "Unknown",
-      fileUrl: file.fileUrl,
-      status: file.status
-    }));
-
-    res.status(200).json({ message: "Files fetched successfully", data: formattedFiles });
+    res.status(200).json({ message: "Files fetched successfully", data: files });
   } catch (error) {
     next(error);
   }
 };
 
-
-
-
-
 export const dummyForm = async (req, res) => {
-  console.log(req.body,"first")
   try {
 
-    console.log(req.body,"send")
       const emprsume = req.files[0];
       const uploadedResume = await uploadToS3(emprsume);
       const newDummy = new dummy({
