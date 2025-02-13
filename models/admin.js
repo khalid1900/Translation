@@ -13,7 +13,10 @@ const adminModel = new mongoose.Schema({
     password: {
         type: String,
         required: true,
-    }
+    },
+    role: { type: String, default: "admin" } // 🔹 Role added
+
+    
 })
 
 export default mongoose.model("Admin", adminModel)

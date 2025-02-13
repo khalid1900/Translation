@@ -3,35 +3,8 @@ import { uploadFile as uploadToS3 } from "../helper/aws.js";
 import { extractTextFromImage } from "../utils/ocr.js"; 
 import dummy from "../models/dummy.js";
 
-/**
- * Handles file upload and optional OCR text extraction.
- */
-// export const uploadFile = async (req, res, next) => {
-//   try {
-//     if (!req.user) {
-//       return res.status(401).json({ message: "Unauthorized: User not found" });
-//     }
 
-//     const { fileUrl, fileType } = req.body;
-//     let extractedText = null;
 
-//     if (fileType.startsWith("image/")) {
-//       extractedText = await extractTextFromImage(fileUrl);
-//     }
-
-//     const newFile = await FileModel.create({
-//       user: req.user._id, // This is now available!
-//       fileUrl,
-//       fileType,
-//       extractedText,
-//       status: "Uploaded",
-//     });
-
-//     res.status(201).json({ message: "File uploaded successfully", data: newFile });
-//   } catch (error) {
-//     next(error);
-//   }
-// };
 
 
 export const uploadFile = async (req, res, next) => {
@@ -40,23 +13,23 @@ export const uploadFile = async (req, res, next) => {
       return res.status(401).json({ message: "Unauthorized: User not found" });
     }
 
-    if (!req.file) {
+    if (!req.files || req.files.length === 0) {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    // Upload file to S3 or another storage service
-    const fileUrl = await uploadToS3(req.file);
+    const file = req.files[0]; // Get first file
+    const uploadedFile = await uploadToS3(file);
 
     let extractedText = null;
-    if (req.file.mimetype.startsWith("image/")) {
-      extractedText = await extractTextFromImage(fileUrl);
+    if (file.mimetype.startsWith("image/")) { // ✅ Use file.mimetype instead of req.file.mimetype
+      extractedText = await extractTextFromImage(uploadedFile);
     }
 
     const newFile = await FileModel.create({
       user: req.user._id,
-      fileUrl,
-      fileType: req.file.mimetype,
-      extractedText,
+      fileUrl: uploadedFile,
+      fileType: file.mimetype, // ✅ Corrected `mimetype` reference
+      extractedText: extractedText, // ✅ Now stores extracted text if available
       status: "Uploaded",
     });
 
@@ -92,6 +65,33 @@ export const downloadFile = async (req, res, next) => {
     next(error);
   }
 };
+
+
+export const getAllFiles = async (req, res, next) => {
+  try {
+    const files = await FileModel.find()
+      .populate("user", "name email language") 
+      .select("fileUrl fileType status user"); 
+
+    if (!files.length) {
+      return res.status(404).json({ message: "No files found" });
+    }
+
+    // Format response data
+    const formattedFiles = files.map(file => ({
+      name: file.user ? file.user.name : "Unknown",  // ✅ Safe check
+      email: file.user ? file.user.email : "Unknown",
+      language: file.user ? file.user.language : "Unknown",
+      fileUrl: file.fileUrl,
+      status: file.status
+    }));
+
+    res.status(200).json({ message: "Files fetched successfully", data: formattedFiles });
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 
 

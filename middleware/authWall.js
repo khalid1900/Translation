@@ -1,4 +1,3 @@
-  import jwt from "jsonwebtoken";
   import Admin from "../models/admin.js";
   import Client from "../models/client.js";
   import { verifyToken } from "../utils/token.js";
@@ -45,14 +44,12 @@
       }
 
       const token = header.split(" ")[1];
-      console.log("Received Token:", token); // Debug log
 
       if (!token) {
         return res.status(401).json({ message: "Unauthorized: Token missing" });
       }
 
       const decoded = verifyToken(token);
-      console.log("Decoded Token:", decoded); // Debug log
 
       if (!decoded || !decoded.user) {
         return res.status(401).json({ message: "Unauthorized: Invalid token" });
@@ -69,3 +66,12 @@
       return res.status(500).json({ message: "Server Error: " + error.message });
     }
   };
+
+
+  export const isAdmin = (req, res, next) => {
+    if (!req.user || req.user.role !== "admin") {
+        return res.status(403).json({ message: "Access denied. Admins only!" });
+    }
+    next();
+};
+
