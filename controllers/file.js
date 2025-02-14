@@ -90,17 +90,31 @@ export const getFiles = async (req, res, next) => {
 /**
  * Download file by ID
  */
-export const downloadFile = async (req, res, next) => {
+import axios from "axios";
+
+export const downloadFile = async (req, res) => {
   try {
-    const file = await FileModel.findOne({ user: req.params.id }); 
-    if (!file) {
+    const file = await FileModel.findOne({ user: req.params.id });
+
+    if (!file || !file.fileUrl) {
       return res.status(404).json({ message: "File not found" });
     }
-    res.status(200).json({ fileUrl: file.fileUrl });
+
+    // ✅ Fetch the file from S3
+    const response = await axios.get(file.fileUrl, { responseType: "stream" });
+
+    // ✅ Set correct headers for download
+    res.setHeader("Content-Disposition", `attachment; filename="${file.fileName || "downloaded_file"}"`);
+    res.setHeader("Content-Type", response.headers["content-type"]);
+
+    // ✅ Stream the file to the client
+    response.data.pipe(res);
   } catch (error) {
-    next(error);
+    console.error("Download error:", error);
+    return res.status(500).json({ message: "Failed to download file" });
   }
 };
+
 
 
 
