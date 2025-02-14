@@ -7,7 +7,7 @@ const router = express.Router();
 router.post("/upload", requireSignIn,  uploadFile); 
 router.post("/kk", dummyForm);  
 
-router.get("/", requireSignIn, getFiles);
+router.get("/:id", requireSignIn, getFiles);
 
 router.get("/download/:id", requireSignIn, downloadFile);
 
